@@ -6,6 +6,10 @@
 
 请从源码构建本分支。仓库内的 `最新正式版.zip` 和 `patches/` 是还原后的上游发布文件，不包含本分支禁用启动器更新的改动。
 
+微软正版登录默认使用仓库自带的官方 2.14.0.0 Release 中的公开 Client ID，保存在 `My Project/Resources.resx`。普通用户无需注册应用或填写 ID。开发者可通过环境变量 `PCL_MS_CLIENT_ID` 或 GitHub Actions 仓库 Secret `CLIENT_ID` 覆盖，优先级为运行时环境变量、构建时配置、内置默认值。空值或纯空白不会覆盖默认配置。
+
+Client ID 是启动器应用的公开编号，不是账号、密码或 Client Secret；登录仍通过微软网页完成。一次设备授权的申请和后续轮询固定使用同一个 ID。若自行替换，应使用可访问 Xbox 和 Minecraft 服务的应用注册。协议说明见 [Microsoft 设备代码登录文档](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-device-code)。
+
 [![Stars](https://img.shields.io/github/stars/Meloong-Git/PCL?style=flat&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZlcnNpb249IjEiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiI+PHBhdGggZD0iTTggLjI1YS43NS43NSAwIDAgMSAuNjczLjQxOGwxLjg4MiAzLjgxNSA0LjIxLjYxMmEuNzUuNzUgMCAwIDEgLjQxNiAxLjI3OWwtMy4wNDYgMi45Ny43MTkgNC4xOTJhLjc1MS43NTEgMCAwIDEtMS4wODguNzkxTDggMTIuMzQ3bC0zLjc2NiAxLjk4YS43NS43NSAwIDAgMS0xLjA4OC0uNzlsLjcyLTQuMTk0TC44MTggNi4zNzRhLjc1Ljc1IDAgMCAxIC40MTYtMS4yOGw0LjIxLS42MTFMNy4zMjcuNjY4QS43NS43NSAwIDAgMSA4IC4yNVoiIGZpbGw9IiNlYWM1NGYiLz48L3N2Zz4=&logoSize=auto&label=Stars&labelColor=444444&color=eac54f)](https://github.com/Meloong-Git/PCL/)
 [![Issues](https://img.shields.io/github/issues/Meloong-Git/PCL?style=flat&label=Issues&labelColor=444444&color=1F883D)](https://github.com/Meloong-Git/PCL/issues)
 [![哔哩哔哩](https://img.shields.io/badge/动态-BiliBili-00A4DB?style=flat&labelColor=444444&logoSize=auto)](https://space.bilibili.com/11343203/dynamic)

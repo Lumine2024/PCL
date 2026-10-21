@@ -6,8 +6,22 @@ Friend Module ModSecret
     Public Const VersionBranchMain As String = "OpenSource"
     '在开源版的注册表与常规版的注册表隔离，以防数据冲突
     Public Const RegFolder As String = "PCLDebug"
-    '用于微软登录的 ClientId
-    Public OAuthClientId As String = If(Environment.GetEnvironmentVariable("PCL_MS_CLIENT_ID"), "")
+    '构建时可注入的微软登录 Client ID；运行时环境变量在 GetOAuthClientId 中读取。
+    Public OAuthClientId As String = ""
+    ''' <summary>
+    ''' 获取当前登录应用的 Client ID。环境变量、构建配置优先于官方 Release 的内置配置。
+    ''' </summary>
+    Friend Function GetOAuthClientId() As String
+        Dim ClientId = Environment.GetEnvironmentVariable("PCL_MS_CLIENT_ID")
+        If String.IsNullOrWhiteSpace(ClientId) Then ClientId = OAuthClientId
+        If String.IsNullOrWhiteSpace(ClientId) Then ClientId = My.Resources.ResourceManager.GetString("MicrosoftOAuthClientId")
+        If String.IsNullOrWhiteSpace(ClientId) Then
+            Throw New InvalidOperationException("$此构建缺少微软登录应用配置，请重新构建，或设置环境变量 PCL_MS_CLIENT_ID 后重新启动。" & vbCrLf &
+                "Client ID 是启动器应用的编号，不是微软账号、密码或 Client Secret。")
+        End If
+        Return ClientId.Trim()
+    End Function
+
     'CurseForge API Key
     Public CurseForgeAPIKey As String = If(Environment.GetEnvironmentVariable("PCL_CURSEFORGE_API_KEY"), "")
     '用于匿名数据收集的腾讯云日志服务上报 URL，形如 https://{region}.cls.tencentcs.com/track?topic_id={topic_id}

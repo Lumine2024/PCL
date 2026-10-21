@@ -109,8 +109,8 @@ Public Class MyMsgLogin
                     "https://login.microsoftonline.com/consumers/oauth2/v2.0/token", HttpMethod.Post,
                     Content:=
                         "grant_type=urn:ietf:params:oauth:grant-type:device_code" & "&" &
-                        "client_id=" & OAuthClientId & "&" &
-                        "device_code=" & DeviceCode & "&" &
+                        "client_id=" & StringUtils.FormUrlEscape(Data("client_id").ToString) & "&" &
+                        "device_code=" & StringUtils.FormUrlEscape(DeviceCode) & "&" &
                         "scope=XboxLive.signin%20offline_access",
                     ContentType:="application/x-www-form-urlencoded",
                     Timeout:=5000 + UnknownFailureCount * 5000,

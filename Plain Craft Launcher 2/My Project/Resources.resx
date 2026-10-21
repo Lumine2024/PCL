@@ -172,4 +172,8 @@
   <data name="Transformer" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\transformer.jar;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
+  <data name="MicrosoftOAuthClientId" xml:space="preserve">
+    <value>fe72edc2-3a6f-4280-90e8-e2beb64ce7e1</value>
+    <comment>仓库自带的官方 2.14.0.0 Release 使用的公开 OAuth 应用标识，不是 Client Secret。</comment>
+  </data>
 </root>
