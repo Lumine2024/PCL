@@ -15,7 +15,6 @@ Friend Module ModSecret
 
 #Region "网络鉴权"
 
-    Public Const RestrictMcDownload As Boolean = True
     Friend Function SecretCdnSign(UrlWithMark As String) As String
         If Not UrlWithMark.EndsWithF("{CDN}") Then Return UrlWithMark
         Return UrlWithMark.Replace("{CDN}", "").Replace(" ", "%20")
@@ -145,14 +144,17 @@ Friend Module ModSecret
 
 #Region "更新"
 
+    '此分支仅通过手动构建更新。保留更新接口，但禁止下载、替换及重启应用更新。
     Friend Sub UpdateCheckByButton()
-        Hint("该版本中不包含更新功能……")
+        Hint("此版本已禁用启动器更新，请手动更新，避免被官方版本覆盖。")
     End Sub
 
-    Friend IsUpdateWaitingRestart As Boolean = False
+    Friend Const IsUpdateWaitingRestart As Boolean = False
     Public Sub UpdateRestart(TriggerRestartAndByEnd As Boolean)
+        Logger.Info("此版本已禁用启动器更新，忽略更新重启请求")
     End Sub
     Public Sub UpdateReplace(ProcessId As Integer, OldFileName As String, NewFileName As String, TriggerRestart As Boolean)
+        Logger.Info("此版本已禁用启动器更新，忽略更新替换请求")
     End Sub
 
     ''' <summary>

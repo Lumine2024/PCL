@@ -35,7 +35,7 @@ Public Class Settings
         New Setting("SystemDebugDelay", False, Source:=Sources.Registry),
         New Setting("SystemDebugSkipCopy", False, Source:=Sources.Registry),
         New Setting("SystemSystemCache", "", Source:=Sources.Registry),
-        New Setting("SystemSystemUpdate", 0),
+        New Setting("SystemSystemUpdate", 3),
         New Setting("SystemSystemActivity", 0),
         New Setting("SystemSystemTelemetry", True, Source:=Sources.Registry),
         New Setting("CacheDrops", "", Source:=Sources.Registry),
@@ -311,10 +311,9 @@ Public Class Settings
     Public Shared Function [Get](Key As String, Optional Instance As McInstance = Nothing)
         Dim Entry As Setting = Nothing
         If Not Entries.TryGetValue(Key, Entry) Then Throw New KeyNotFoundException("未找到设置项：" & Key)
-        Dim Value = Entry.GetCache(Instance)
-        If Value IsNot Nothing Then Return Value
-        '对部分设置强制赋值
+        '强制设置优先于缓存，避免旧配置或运行时写入重新启用更新。
         Static ForcedSettings As New Dictionary(Of String, Object) From {
+            {"SystemSystemUpdate", 3},
             {"UiHiddenPageLink", True},
             {"UiHiddenSetupLink", True}
         }
@@ -323,6 +322,8 @@ Public Class Settings
             Entry.Set(ForcedSetting, Instance)
             Return ForcedSetting
         End If
+        Dim Value = Entry.GetCache(Instance)
+        If Value IsNot Nothing Then Return Value
         '正常读取
         Try
             Dim GotValue As String = Nothing '先用 String 储存，避免类型转换

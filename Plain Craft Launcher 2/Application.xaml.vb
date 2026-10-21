@@ -39,9 +39,9 @@ Public Class Application
             '检查参数调用
             If e.Args.Length > 0 Then
                 If e.Args(0) = "--update" Then
-                    '自动更新
-                    UpdateReplace(e.Args(1), e.Args(2).Trim(""""), e.Args(3).Trim(""""), e.Args(4))
-                    Environment.Exit(ProcessReturnValues.TaskDone)
+                    '拒绝旧更新器的调用，避免此分支被官方版本覆盖，也不解析更新参数。
+                    Logger.Info("此版本已禁用启动器更新，忽略 --update 请求")
+                    Environment.Exit(ProcessReturnValues.Cancel)
                 ElseIf e.Args(0) = "--gpu" Then
                     '调整显卡设置
                     Try
