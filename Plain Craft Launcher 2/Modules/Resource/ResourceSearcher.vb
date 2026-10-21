@@ -21,12 +21,23 @@ Public Class ResourceSearcher
         ''' </summary>
         Public ReadOnly Property CanContinue As Boolean
             Get
-                If Tag.StartsWithF("/") OrElse Not Sources.HasFlagF(ResourcePlatforms.CurseForge) Then Storage.CurseForgeTotal = 0
-                If Tag.EndsWithF("/") OrElse Not Sources.HasFlagF(ResourcePlatforms.Modrinth) Then Storage.ModrinthTotal = 0
-                If Storage.CurseForgeTotal = -1 OrElse Storage.ModrinthTotal = -1 Then Return True
-                Return Storage.CurseForgeOffset < Storage.CurseForgeTotal OrElse Storage.ModrinthOffset < Storage.ModrinthTotal
+                Return CanContinueFrom(ResourcePlatforms.CurseForge) OrElse CanContinueFrom(ResourcePlatforms.Modrinth)
             End Get
         End Property
+        ''' <summary>
+        ''' 指定的单个来源是否兼容筛选条件，且仍有未获取的结果。
+        ''' </summary>
+        Public Function CanContinueFrom(Source As ResourcePlatforms) As Boolean
+            If Not Sources.HasFlagF(Source) Then Return False
+            Select Case Source
+                Case ResourcePlatforms.CurseForge
+                    Return Not Tag.StartsWithF("/") AndAlso (Storage.CurseForgeTotal = -1 OrElse Storage.CurseForgeOffset < Storage.CurseForgeTotal)
+                Case ResourcePlatforms.Modrinth
+                    Return Not Tag.EndsWithF("/") AndAlso (Storage.ModrinthTotal = -1 OrElse Storage.ModrinthOffset < Storage.ModrinthTotal)
+                Case Else
+                    Throw New ArgumentException("必须指定单个资源来源", NameOf(Source))
+            End Select
+        End Function
 
         '输入内容
 
@@ -172,7 +183,9 @@ Public Class ResourceSearcher
             Return
         ElseIf Not Request.CanContinue Then
             If Not Storage.Results.Any() Then
-                Throw New Exception("没有符合条件的结果")
+                If Request.Sources = ResourcePlatforms.CurseForge AndAlso Request.Tag.StartsWithF("/") Then Throw New Exception("CurseForge 不兼容所选的类型")
+                If Request.Sources = ResourcePlatforms.Modrinth AndAlso Request.Tag.EndsWithF("/") Then Throw New Exception("Modrinth 不兼容所选的类型")
+                Return
             Else
                 Logger.Info($"已有 {Storage.Results.Count} 个结果，少于所需的 {Request.TargetResultCount} 个结果，但无法继续获取，结束处理")
                 Return
@@ -288,6 +301,12 @@ Public Class ResourceSearcher
 #End Region
 
         Dim RealResults As New List(Of ResourceProject)
+        '本次加载中隔离失败来源，继续从可用来源翻页；下次搜索或重试时重新尝试。
+        Dim FailedSources As New HashSet(Of ResourcePlatforms)
+        Dim SuccessfulRequests As New ConcurrentBag(Of ResourcePlatforms)
+        '此前已成功请求且已耗尽的来源也算成功，不能在重试失败来源时丢失空结果状态。
+        If Request.Sources.HasFlagF(ResourcePlatforms.CurseForge) AndAlso Not Request.Tag.StartsWithF("/") AndAlso Storage.CurseForgeTotal >= 0 Then SuccessfulRequests.Add(ResourcePlatforms.CurseForge)
+        If Request.Sources.HasFlagF(ResourcePlatforms.Modrinth) AndAlso Not Request.Tag.EndsWithF("/") AndAlso Storage.ModrinthTotal >= 0 Then SuccessfulRequests.Add(ResourcePlatforms.Modrinth)
 NextPage:
         Dim RawResults As New List(Of ResourceProject)
 
@@ -303,8 +322,7 @@ NextPage:
         Try
 
             'CurseForge 搜索
-            If Request.Sources.HasFlagF(ResourcePlatforms.CurseForge) AndAlso
-               Not (Storage.CurseForgeTotal > -1 AndAlso Storage.CurseForgeTotal <= Storage.CurseForgeOffset) AndAlso '剩余的未显示的搜索结果不足
+            If Request.CanContinueFrom(ResourcePlatforms.CurseForge) AndAlso Not FailedSources.Contains(ResourcePlatforms.CurseForge) AndAlso
                (Not IsChineseSearch OrElse (IsChineseSearch AndAlso Not String.IsNullOrEmpty(CurseForgeAltSearchText))) Then '如果是中文搜索，就只在有对应搜索关键词的时候才继续
                 WorkThreads.Add(RunInNewThread(
                 Sub()
@@ -324,6 +342,8 @@ NextPage:
                         ProjectList.ForEach(Sub(p) SearchResults.Add(p))
                         Storage.CurseForgeOffset += RequestResult("data").Count
                         Storage.CurseForgeTotal = RequestResult("pagination")("totalCount").ToObject(Of Integer)
+                        If RequestResult("data").Count = 0 Then Storage.CurseForgeTotal = Storage.CurseForgeOffset '空页不再继续，防止总数过期时循环请求
+                        SuccessfulRequests.Add(ResourcePlatforms.CurseForge)
                         Logger.Info($"从 CurseForge 搜索到了 {ProjectList.Count} 个工程（总计已获取 {Storage.CurseForgeOffset} 个，共 {Storage.CurseForgeTotal} 个）")
                     Catch ex As Exception
                         Logger.Warn(ex, "CurseForge 搜索失败")
@@ -335,8 +355,7 @@ NextPage:
             End If
 
             'Modrinth 搜索
-            If Request.Sources.HasFlagF(ResourcePlatforms.Modrinth) AndAlso
-               Not (Storage.ModrinthTotal > -1 AndAlso Storage.ModrinthTotal <= Storage.ModrinthOffset) AndAlso '剩余的未显示的搜索结果不足
+            If Request.CanContinueFrom(ResourcePlatforms.Modrinth) AndAlso Not FailedSources.Contains(ResourcePlatforms.Modrinth) AndAlso
                (Not IsChineseSearch OrElse (IsChineseSearch AndAlso Not String.IsNullOrEmpty(ModrinthAltSearchText))) Then '如果是中文搜索，就只在有对应搜索关键词的时候才继续
                 WorkThreads.Add(RunInNewThread(
                 Sub()
@@ -352,6 +371,8 @@ NextPage:
                         ProjectList.ForEach(Sub(p) SearchResults.Add(p))
                         Storage.ModrinthOffset += RequestResult("hits").Count
                         Storage.ModrinthTotal = RequestResult("total_hits").ToObject(Of Integer)
+                        If RequestResult("hits").Count = 0 Then Storage.ModrinthTotal = Storage.ModrinthOffset
+                        SuccessfulRequests.Add(ResourcePlatforms.Modrinth)
                         Logger.Info($"从 Modrinth 搜索到了 {ProjectList.Count} 个工程（总计已获取 {Storage.ModrinthOffset} 个，共 {Storage.ModrinthTotal} 个）")
                     Catch ex As Exception
                         Logger.Warn(ex, "Modrinth 搜索失败")
@@ -363,8 +384,7 @@ NextPage:
             End If
 
             'Modrinth 直接获取工程
-            If Request.Sources.HasFlagF(ResourcePlatforms.Modrinth) AndAlso
-               Not (Storage.ModrinthTotal > -1 AndAlso Storage.ModrinthTotal <= Storage.ModrinthOffset) AndAlso '剩余的未显示的搜索结果不足
+            If Request.CanContinueFrom(ResourcePlatforms.Modrinth) AndAlso Not FailedSources.Contains(ResourcePlatforms.Modrinth) AndAlso
                ModrinthSlugs.Any Then '有直接获取的 Slug
                 WorkThreads.Add(RunInNewThread(
                 Sub()
@@ -395,6 +415,7 @@ NextPage:
                         End If
                         '更新结果
                         ProjectList.ForEach(Sub(p) SearchResults.Add(p))
+                        SuccessfulRequests.Add(ResourcePlatforms.Modrinth)
                         Logger.Info($"从 Modrinth 直接获取到了 {ProjectList.Count} 个工程")
                         ModrinthSlugs.Clear() '防止重试/加载下一页时重复获取
                     Catch ex As Exception
@@ -417,29 +438,18 @@ NextPage:
                 RawResults.KeepIf(Function(p) p.ModLoaders = ModLoaders.None OrElse p.ModLoaders.HasFlagF(ModLoaders.Forge))
             End If
 
-            '确保存在结果
+            '来源返回空列表也属于成功。只有全部请求失败且没有已取得的内容时，才让整页失败。
+            For Each Failure In Errors
+                FailedSources.Add(Failure.Source)
+            Next
             Storage.ErrorMessage = Nothing
-            If Not RawResults.Any() Then
-                If Errors.Any() Then
-                    Throw Errors.First.Ex
-                Else
-                    If IsChineseSearch AndAlso Not (Request.Type = ResourceTypes.Mod OrElse Request.Type = ResourceTypes.DataPack) Then
-                        Throw New Exception(MSG_NO_CHINESE_RESULT)
-                    ElseIf Request.Sources = ResourcePlatforms.CurseForge AndAlso Request.Tag.StartsWithF("/") Then
-                        Throw New Exception("CurseForge 不兼容所选的类型")
-                    ElseIf Request.Sources = ResourcePlatforms.Modrinth AndAlso Request.Tag.EndsWithF("/") Then
-                        Throw New Exception("Modrinth 不兼容所选的类型")
-                    Else
-                        Throw New Exception("没有搜索结果")
-                    End If
+            If FailedSources.Any() Then
+                Dim SourceNames = FailedSources.OrderBy(Function(s) CInt(s)).Select(Function(s) s.ToString()).Join("、")
+                If Not SuccessfulRequests.Any() AndAlso Not RawResults.Any() AndAlso Not Storage.Results.Any() AndAlso Not RealResults.Any() Then
+                    '详细异常已在各来源的日志中记录，界面不展示服务器返回的 HTML 和重复堆栈。
+                    Throw New Exception($"{SourceNames} 均请求失败，请稍后重试或更换下载来源。详细原因请查看日志。")
                 End If
-            ElseIf Errors.Any() Then
-                '有结果但是有错误
-                If Errors.Any(Function(e) e.Source = ResourcePlatforms.CurseForge) Then
-                    Storage.ErrorMessage = $"无法连接到 CurseForge，所以目前仅显示了来自 Modrinth 的内容，搜索结果可能不全。{vbCrLf}请稍后再试，或使用 VPN 改善网络环境。"
-                Else
-                    Storage.ErrorMessage = $"无法连接到 Modrinth，所以目前仅显示了来自 CurseForge 的内容，搜索结果可能不全。{vbCrLf}请稍后再试，或使用 VPN 改善网络环境。"
-                End If
+                Storage.ErrorMessage = $"{SourceNames} 请求失败，搜索结果可能不完整。{vbCrLf}请稍后重试；详细原因请查看日志。"
             End If
 
         Finally
@@ -469,7 +479,8 @@ NextPage:
 
         If RealResults.Count + Storage.Results.Count < Request.TargetResultCount Then
             Logger.Info($"总结果数需求最少 {Request.TargetResultCount} 个，仅获得了 {RealResults.Count + Storage.Results.Count} 个")
-            If Request.CanContinue AndAlso Not Errors.Any Then '如果有某个源失败则不再重试，这时候重试可能导致无限循环
+            If (Not FailedSources.Contains(ResourcePlatforms.CurseForge) AndAlso Request.CanContinueFrom(ResourcePlatforms.CurseForge)) OrElse
+               (Not FailedSources.Contains(ResourcePlatforms.Modrinth) AndAlso Request.CanContinueFrom(ResourcePlatforms.Modrinth)) Then
                 Logger.Info("将继续尝试加载下一页")
                 GoTo NextPage
             Else

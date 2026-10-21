@@ -147,15 +147,18 @@ Public Class PageResource
             Logger.Info($"开始可视化{TypeNameSpaced}列表，已储藏 {Storage.Results.Count} 个结果，当前在第 {Page + 1} 页")
             '列表项
             PanProjects.Children.Clear()
-            Dim Index As Integer = Math.Min(Page * PAGE_SIZE, Storage.Results.Count - 1)
+            Page = Math.Min(Page, Math.Max(0, (Storage.Results.Count - 1) \ PAGE_SIZE))
+            Dim Index As Integer = Math.Min(Page * PAGE_SIZE, Storage.Results.Count)
             For Each Result In Storage.Results.GetRange(Index, Math.Min(Storage.Results.Count - Index, PAGE_SIZE))
                 PanProjects.Children.Add(Result.ToResourceItem(
                     ShowMcVersionDesc:=Loader.Input.GameVersion Is Nothing,
                     ShowLoaderDesc:=Loader.Input.ModLoaders = ModLoaders.None AndAlso (PageType = ResourceTypes.Mod OrElse PageType = ResourceTypes.ModPack)))
             Next
+            LabNoResults.Visibility = If(PanProjects.Children.Count = 0, Visibility.Visible, Visibility.Collapsed)
             '页码
-            CardPages.Visibility = If(Storage.Results.Count > 40 OrElse
-                                      Storage.CurseForgeOffset < Storage.CurseForgeTotal OrElse Storage.ModrinthOffset < Storage.ModrinthTotal,
+            CardPages.Visibility = If(Storage.Results.Count > PAGE_SIZE OrElse
+                                      (Loader.Input.CanContinueFrom(ResourcePlatforms.CurseForge) AndAlso Storage.CurseForgeTotal >= 0) OrElse
+                                      (Loader.Input.CanContinueFrom(ResourcePlatforms.Modrinth) AndAlso Storage.ModrinthTotal >= 0),
                                       Visibility.Visible, Visibility.Collapsed)
             LabPage.Text = Page + 1
             BtnPageFirst.IsEnabled = Page > 1
@@ -164,7 +167,8 @@ Public Class PageResource
             BtnPageLeft.Opacity = If(Page > 0, 1, 0.2)
             Dim IsRightEnabled As Boolean = '由于 WPF 的未知 bug，读取到的 IsEnabled 可能是错误的值（#3319）
                 Storage.Results.Count > PAGE_SIZE * (Page + 1) OrElse
-                Storage.CurseForgeOffset < Storage.CurseForgeTotal OrElse Storage.ModrinthOffset < Storage.ModrinthTotal
+                (Loader.Input.CanContinueFrom(ResourcePlatforms.CurseForge) AndAlso Storage.CurseForgeTotal >= 0) OrElse
+                (Loader.Input.CanContinueFrom(ResourcePlatforms.Modrinth) AndAlso Storage.ModrinthTotal >= 0)
             BtnPageRight.IsEnabled = IsRightEnabled
             BtnPageRight.Opacity = If(IsRightEnabled, 1, 0.2)
             '错误信息
