@@ -1,0 +1,23 @@
+{
+  "publicBranch": "main",
+  "privateBranch": "local-private",
+  "remote": "origin",
+  "remoteBranch": "main",
+  "privateCommits": [
+    "c184baa27dde76b4eb970b28c51da5626e711136"
+  ],
+  "protectedValues": [
+    {
+      "commit": "c184baa27dde76b4eb970b28c51da5626e711136",
+      "path": "Plain Craft Launcher 2/Modules/ModSecret.vb",
+      "pattern": "(?m)^[ \\t]*Private Const CurseForgeAPIKeyBase64 As String = \"(?<value>[^\"\\r\\n]+)\"",
+      "decodeBase64": true
+    }
+  ],
+  "forbiddenPublicContent": [
+    {
+      "path": "Plain Craft Launcher 2/Modules/ModSecret.vb",
+      "pattern": "(?m)^[ \\t]*(?:Private Const CurseForgeAPIKeyBase64|Public CurseForgeAPIKey) As String = \"[^\"\\r\\n]+\""
+    }
+  ]
+}
